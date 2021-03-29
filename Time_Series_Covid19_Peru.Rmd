@@ -1,6 +1,6 @@
 ---
 title: "TIME SERIES COVID 19 PERU CODE"
-subtitle: "**SOURCE: MINSA-PERU / CSSE-JOHN JOPCKINS UNIVERSITY**"
+subtitle: "**SOURCE: MINSA-PERU / CSSE-JOHN HOPCKINS UNIVERSITY**"
 author: "MARCO ARELLANO B."
 date: "3/28/2021"
 output: html_document
@@ -29,7 +29,7 @@ knitr::opts_chunk$set(cache.extra = packageVersion('tufte'))
 
 Hello! I've been learning to code in R Studio and I've done this project to show you a bit of what I've been learning regarding data visualization.
 
-This project is about Covid 19 in Peru. We will make 4 graphs. The first 3 graphs correspond to the number of confirmed cases, deaths and daily recoveries that have occurred in Peru from March 6, 2020 to March 26, 2021. These 3 graphs will be made using the `dygraph` library.
+This project is about Covid 19 in Peru from March 3, 2020 to March 28, 2021. We will make 4 graphs. The first 3 graphs correspond to the number of confirmed cases, deaths and daily recoveries that have occurred in Peru from March 6, 2020 to March 26, 2021. These 3 graphs will be made using the `dygraph` library.
 
 On the other hand, the 4th graph will be made with the `plotly` library and we will use the accumulated values of confirmed cases, deaths and recovered in the same period of time as the previous plots.
 
@@ -70,7 +70,7 @@ Datasets come in wide format and, by default, have an X in front of each column 
 
 
 ```{r CORRIGIENDO ERROR}
-# names(data) <- substring(data,2) =  eliminara los dos primeros caracteres del nombre de la columna.
+
 names(deaths)[5:396] <- substring(names(deaths)[5:396],2)
 names(recovered)[5:396] <- substring(names(recovered)[5:396],2)
 names(confirmed)[5:396] <- substring(names(confirmed)[5:396],2)
@@ -86,7 +86,7 @@ Finally, the variable `dates` which corresponds to the new variable that we crea
 
 
 ```{r continents + inner_join}
-#Llamamos a nuetra nueva variable 
+
 continents <- read_excel("~/Desktop/DATA SCIENCE/COVID 19/03.28.2021/DATA/continents_Corrected.xlsx")
 
 confirmed_long <- confirmed %>%
