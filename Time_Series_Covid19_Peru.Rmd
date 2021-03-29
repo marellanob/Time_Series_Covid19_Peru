@@ -1,6 +1,6 @@
 ---
 title: "TIME SERIES COVID 19 PERU CODE"
-subtitle: "**SOURCE: MINSA-PERU / CSSE-JOHN HOPCKINS UNIVERSITY**"
+subtitle: "**SOURCE: MINSA-PERU / CSSE-JOHN HOPKINS UNIVERSITY**"
 author: "MARCO ARELLANO B."
 date: "3/28/2021"
 output: html_document
