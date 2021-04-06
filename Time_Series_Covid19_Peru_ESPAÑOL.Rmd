@@ -1,0 +1,583 @@
+---
+title: '**VISUALIZACIÓN DE SERIES DE TIEMPO DE LA COVID-19 EN EL PERÚ**'
+author: "MARCO ARELLANO B. <br> [Twitter: marellanob93](https://twitter.com/marellanob93) <br> [Github: marellanob](https://github.com/marellanob)"
+date: "3/31/2021"
+output:
+  html_document: 
+    theme: spacelab
+  always_allow_html: yes
+  pdf_document: default
+subtitle: '**FUENTE: MINSA-PERU / CSSE-JOHN HOPKINS UNIVERSITY**'
+link-citations: yes
+---
+
+**keywords: Visualization, R coding, graphics, Covid-19, Peru.** 
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE,
+                      fig.align = "center",
+                      message = FALSE,
+                      warning=FALSE)
+
+```
+
+
+<style>
+/* resize the widget container */
+.manipulateWidget { 
+  width: 200% !important;
+}
+
+/* center the widget */
+div.svg-container {
+  margin: auto !important;
+}
+</style>
+
+### Introducción
+
+¡Hola! Estoy aprendiendo programación en R con RStudio y este es mi primer proyecto de visualización donde muestro lo que he estado aprendiendo con respecto a la visualización de datos. Soy graduado en comunicación, tengo experiencia en producción cinematográfica, y me he sentido atraído por el campo de la analítica a través del área de visualización. Me sorprende la cantidad de información que puede contener una sola gráfica. Para mi, la visualización es como una buena película,  te cuenta una historia y al mismo tiempo genera sensaciones y conversaciones. 
+
+Este proyecto trata sobre la evolución de la Covid-19 en Perú del 6 de marzo de 2020 al 31 de marzo de 2021. Perú, ubicado en América del Sur, tiene una población de 33 millones de personas y tres regiones geográficas distintas: Costa oeste desértica, Región central andina de montaña alta y la Amazonía peruana, que se extiende desde la cadena oriental de los Andes, a la selva baja de la Cuenca del Amazonas. Para más información sobre Perú haz <a href="https://www.britannica.com/place/Peru">click aquí</a>
+
+
+Los datos, presentados a nivel nacional, corresponden al número acumulado de casos en los informes diarios de; a) casos confirmados, b) casos recuperados, y c) número de muertes. 
+
+
+Desde el 15 de marzo de 2020, Perú ha estado bajo una serie de restricciones que se relajaron a medida que disminuía el número de casos; o se endurecián, según el número de casos comenzó a aumentar  en respuesta al avance de la Covid-19 debido a una combinación de condiciones ambientales, capacidad hospitalaria y respuestas del comportamiento humano a las restricciones continuas que afectaron principalmente las interacciones sociales y económicas. Un impulsor importante del aumento temprano de personas afectadas por este virus es la necesidad de un gran segmento de la población del Perú de seguir trabajando durante la pandemia en trabajos con salarios muy bajos, lo que les imposibilitó seguir las regulaciones del gobierno de "quedarse en casa".
+
+
+Mis objetivos de visualización son graficar cada serie acumulada en un solo gráfico, graficar cada serie de casos diarios individuales en un gráfico interactivo individual, y obtener estos cuatro gráficos en una sola gráfica final manteniendo la interactividad de los gráficos de casos individuales y acumulados. No hace falta decir que he aprendido mucho al completar estas tareas y disfruté cada paso de mi curva de aprendizaje.
+
+
+### Data
+
+Los archivos de datos (datasets) se descargaron del repositorio de github de <a href="https://github.com/CSSEGISandData/COVID-19/tree/master/csse_covid_19_data/csse_covid_19_time_series"> CSSE-John Hopkins University </a>. Cada  dataset contiene información a nivel nacional,  274 filas para los países en los datasets de casos confirmados y de muertes; y 259 filas en el dataset de casos recuperados; cada día corresponde a una columna, para un total de 439 columnas. La fecha en formato *mm-dd-yyyy* da nombre a cada columna. Cada país corresponde a una fila, excepto Australia, Canadá, China, Dinamarca, Francia, Países Bajos y Reino Unido, que presentan información a nivel provincial. El último día de acceso al repositorio fue el 31/03/2021.
+
+
+Los datasets descargados estaban en formato ancho y tienen la cadena de caracteres 'X.' delante de la fecha que da nombre a las columnas. Use  el comando `base::substring` para eliminar estas cadenas. Adicionalmente, en cada dataset, agregué, con el comando `dplyr::inner_join`, la variable *continents*, que corresponde al continente en el que se encuentra cada país y  *region* que corresponde a la región geopolítica de cada país. 
+
+
+Luego, convertí cada dataset de un formato ancho a un formato largo usando el comando `tidyr::pivot_longer`. Como resultado, los conjuntos de datos finales tienen 5 columnas y 67080 filas. Las columnas corresponden a *Country.Region*(lista de países), *continent*(lista de continentes), *region*(lista de regiones), *dates*(fechas), y *confirmed*(para la dataset de los casos confirmados), o *recovered*(para la dataset de los casos recuperados), o *deaths*(para el dataset de número de muertes). Finalmente, la variable *dates* fue convertida (de formato 'integer') a formato de fechas con el comando `lubridate::mdy`.
+
+
+### Especificaciones Técnicas
+
+Este proyecto se realizó con:
+
+ - R 4.0.3 GUI 1.73 Catalina build (7892). 
+ - R studio Version 1.4.1103 for MacOS.  
+ - Mac Book Pro- MacOS High Sierra Version 10.13.6
+
+
+### R Packages
+
+```{r libraries}
+library(readxl)
+library(tidyverse)
+library(magrittr)
+library(lubridate)
+library(dplyr)
+library(xts)
+library(tsibble)
+library(slider)
+library(dygraphs)
+library(plotly)
+library(manipulateWidget)
+library(knitr)
+```
+
+Leer la dataset de los casos de Confirmados acumulados (**confirmed**) 
+
+```{r data_confirmed}
+confirmed <- read.csv("/Users/marcoarellano/Desktop/DATA SCIENCE/COVID 19/03.31.2021/DATA/time_series_covid19_confirmed_global.csv")
+n_colsc <- dim(confirmed)[2]
+n_rowsc <- dim(confirmed)[1]
+names(confirmed)[5:n_colsc] <- substring(names(confirmed)[5:n_colsc],2)
+tail(confirmed[, 1:6])
+```
+
+`confirmed dataset tiene `r n_rowsc` filas y `r n_colsc` columnas.`
+
+Leer la dataset de los casos de Recuperados acumulados (**recovered**)  
+
+```{r data_recovered}
+recovered <- read.csv("/Users/marcoarellano/Desktop/DATA SCIENCE/COVID 19/03.31.2021/DATA/time_series_covid19_recovered_global.csv")
+n_colsr <- dim(recovered)[2]
+n_rowsr <- dim(recovered)[1]
+names(recovered)[5:n_colsr] <- substring(names(recovered)[5:n_colsr],2)
+tail(recovered[, 1:6])
+```
+
+`recovered dataset tiene `r n_rowsr` filas y `r n_colsr` columnas.`
+
+Leer la dataset de Muertes acumuladas (**deaths**) 
+
+```{r data_deaths}
+deaths <- read.csv("/Users/marcoarellano/Desktop/DATA SCIENCE/COVID 19/03.31.2021/DATA/time_series_covid19_deaths_global.csv")
+n_colsd <- dim(deaths)[2]
+n_rowsd <- dim(deaths)[1]
+names(deaths)[5:n_colsd] <- substring(names(deaths)[5:n_colsd],2)
+tail(deaths[, 1:6])
+```
+
+`deaths dataset tiene `r n_rowsd` filas and `r n_colsd` columnas.`
+
+Leer la dataset de los Continentes y la lista de los paises (**continents**) 
+
+```{r continents}
+continents <- read_excel("~/Desktop/DATA SCIENCE/COVID 19/03.31.2021/DATA/continents_Corrected.xlsx")
+head(continents)
+```
+
+
+Aquí creo el formato largo para cada dataset con los siguientes pasos:  
+
+  1. Agrego la variable *continents* al conjunto de datos, usando `dplyr::inner_join ()`  
+  2. Uso `dplyr::pivot_longer` para el cambio de tener cada fecha como una columna, a tener cada fecha como una fila, agrupadas por cada país y provincia donde sea necesario.  
+  3. Defino la columna *dates* como **Variable de clase Date**.  
+  4. Para uniformizar en los casos en los que hay más de una fila por país,   
+    a) Agrupo cada conjunto de datos por *Country.Region*, *continent*, *region*, *dates*,      
+    b) Obtengo los valores acumulados de *confirmed*(confirmados) o *recovered*(recuperados), o *deaths*(muertes),   
+  6. Cancelo la agrupación.  
+  
+  
+Crear la version larga para casos confirmados acumulados (**confirmed_long**)   
+ 
+```{r confirmed_long}
+confirmed_long <- confirmed %>%
+  inner_join(continents, by = "Country.Region") %>%
+  pivot_longer (
+    cols = !c(Province.State, Country.Region, Lat, Long, continent, region),
+    names_to = c("dates"),
+    values_to = "confirmed") %>%
+  mutate(dates = mdy(dates)) %>%
+  group_by(Country.Region, continent, region, dates) %>%
+  summarise(confirmed = sum(confirmed)) %>%
+  ungroup()
+n_colscl <- dim(confirmed_long)[2]
+n_rowscl <- dim(confirmed_long)[1]
+tail(confirmed_long)
+```
+
+`confirmed_long dataset tiene `r n_rowscl` filas and `r n_colscl` columnas.`
+
+Crear la version larga para casos recuperados acumulados (**recovered_long**)  
+
+```{r recovered_long}
+recovered_long <- recovered %>%
+  inner_join(continents, by = "Country.Region") %>%
+  pivot_longer (
+    cols = !c(Province.State, Country.Region, Lat, Long, continent, region),
+    names_to = c("dates"),
+    values_to = "recovered") %>%
+  mutate(dates = mdy(dates))%>%
+  group_by(Country.Region, continent, region, dates) %>%
+  summarise(recovered = sum(recovered)) %>%
+  ungroup()
+n_colsrl <- dim(recovered_long)[2]
+n_rowsrl <- dim(recovered_long)[1]
+tail(recovered_long)
+```
+
+`recovered_long dataset tiene `r n_rowsrl` filas and `r n_colsrl` columnas.`
+
+Crear la version larga para fallecimientos confirmados acumulados (**deaths_long**)  
+
+```{r deaths_long}
+deaths_long <- deaths %>%
+  inner_join(continents, by = "Country.Region") %>%
+  pivot_longer (
+    cols = !c(Province.State, Country.Region, Lat, Long, continent, region),
+    names_to = c("dates"),
+    values_to = "deaths") %>%
+  mutate(dates = mdy(dates)) %>%
+  group_by(Country.Region, continent, region, dates) %>%
+  summarise(deaths= sum(deaths)) %>%
+  ungroup()
+n_colsdl <- dim(deaths_long)[2]
+n_rowsdl <- dim(deaths_long)[1]
+tail(deaths_long)
+```
+
+`deaths_long dataset tiene `r n_rowsdl` filas y `r n_colsdl` columnas.`
+
+A continuación, creo una nueva columna que corresponde al número de casos diarios en cada conjunto de datos.
+
+Los casos diarios se logran restando los casos del día (j-1) al día (j), la diferencia nos da el aumento de casos en un solo día. Para lograr esto, utilizo el comando `dplyr::lag` que permite encontrar el número de casos del día anterior. El uso de la opción `lag ()` **default = 0 **, significa que el valor de `lag` para la primera observación será el mismo que el valor observado para ese día.
+
+  1. El pedido se realiza secuencialmente desde la primera fecha, 22/01/2020, hasta la fecha final, 31/03/2021.
+  2. Agrupo las filas por *Country.Region*(países).
+  3. Creo las variables *confirmed_dailycases*(confirmados diarios), o *recovered_dailycases*(recuperados diarios), o *deaths_dailycases*(muertes diarias).
+  4. Cancelo la agrupación dentro de cada dataset.
+
+
+Crear la variable casos diarios confirmados (**confirmed_dailycases**)  
+
+```{r lag_confirmed}
+confirmed_long <- confirmed_long %>%
+  arrange(dates) %>%
+  group_by(Country.Region) %>%
+  mutate(confirmed_dailycases = confirmed - lag(confirmed, default = 0)) %>%
+  ungroup()
+head(confirmed_long)
+```
+
+Crear la variable casos diarios recuperados (**recovered_dailycases**)
+
+```{r lag_recovered}
+recovered_long <- recovered_long %>%
+  arrange(dates) %>%
+  group_by(Country.Region) %>%
+  mutate(recovered_dailycases = recovered - lag(recovered, default = 0)) %>%
+  ungroup()
+head(recovered_long)
+```
+
+Crear la variable fallecimientos diarios  (**deaths_dailycases**)
+
+```{r lag_deaths}
+deaths_long <- deaths_long %>%
+  arrange(dates) %>%
+  group_by(Country.Region) %>%
+  mutate(deaths_dailycases = deaths - lag(deaths, default = 0)) %>%
+  ungroup()
+head(deaths_long)
+```
+
+
+Aquí selecciono datos de mi país, Perú, siguiendo los pasos:  
+
+  1. Utilizo `dplyr::filter` para seleccionar datos de Perú en cada dataset.
+  2. Selecciono las variables que se incluirán en cada dataset de Perú: **Peru_confirmed **, **Peru_recovered **, **Peru_deaths**.
+  3. Eliminé la columna *Country.Region*(países) porque los tres conjuntos de datos se refieren a Perú.
+  4. Utilizo `dplyr::full_join` para crear un único conjunto de datos con las tres series: *confirmed*(confirmados), *recovered*(recuperadas) y *deaths* (muertes). La variable *dates*(fechas) se utiliza para unir los tres datasets de Perú.
+  5. Finalmente, creo una nueva variable, *deaths_100k*, que corresponde a *(#muertes/32625948)10^5)*, ya que la población de Perú para marzo de 2021 se estima en <a href="https://www.britannica.com/place/Peru">32 625 948 millones</a>.   
+
+
+```{r Peru}
+Peru_confirmed <- confirmed_long %>%
+  filter(Country.Region %in% "Peru") %>%
+  select(Country.Region, dates, confirmed, confirmed_dailycases)
+Peru_confirmed <- Peru_confirmed[,-c(1)]
+
+Peru_recovered <- recovered_long %>%
+  filter(Country.Region %in% "Peru") %>%
+  select(Country.Region, dates, recovered, recovered_dailycases)
+Peru_recovered <- Peru_recovered[,-c(1)]
+
+Peru_deaths <- deaths_long %>%
+  filter(Country.Region %in% "Peru") %>%
+  select(Country.Region, dates, deaths, deaths_dailycases)
+Peru_deaths <- Peru_deaths[,-c(1)]
+```
+
+Combinar los tres datasets en el nuevo dataset **Peru_global**
+
+```{r Peru_global}
+Peru_global <- Peru_confirmed %>%
+  full_join(Peru_recovered, by = "dates") %>%
+  full_join(Peru_deaths, by = "dates") %>%
+  mutate(deaths_100k = ceiling((deaths/32625948)*10^5))
+n_colspg <- dim(Peru_global)[2]
+n_rowspg <- dim(Peru_global)[1]
+tail(Peru_global)
+```
+
+`Peru_global dataset tiene `r n_rowspg` filas y `r n_colspg` columnas.`
+
+A continuación, creo una nueva variable correspondiendo al promedio móvil de 7 días para cada una de las variables *confirmed*(confirmados),  *recovered*(recuperados) y *deaths*(muertes) en el dataset **Peru_global**.
+
+Primero, usando el comando `tsibble::as_tsibble` transformo el dataset **Peru_global** en un objeto de series de tiempo. 
+
+
+```{r Peru_global_transform}
+nr <- nrow(Peru_global)
+Peru_global$rid <- seq(1, nr ,1)
+Peru_global_ts <- as_tsibble(Peru_global, 
+                             key = rid,
+                             index = dates)
+```
+
+
+El promedio móvil de 7 días (7-day Rolling Average) toma siete valores consecutivos y calcula su promedio, este promedio se empareja con la fecha central del intervalo de 7 días, que corresponde a la cuarta fecha; el siguiente intervalo de 7 días se crea eliminando la fecha más temprana del intervalo y agregando la fecha siguiente después de la última fecha del intervalo.
+
+- El promedio móvil de 7 días se crea con el comando `slider::slide_index_dbl`.
+- La posición de nuestro promedio móvil de 7 días corresponde al cuarto día de cada intervalo de 7 días consecutivos. 
+- Los promedios móviles de 7 días suavizan la variación observada día a día en cada intervalo de 7 días consecutivos.
+
+
+```{r 7_DAY_ROLLING AVG}
+Peru_global_ts <- Peru_global_ts %>% 
+  filter_index("2020-03-06" ~ .) %>% 
+  mutate(confirmed7_dailycases = slide_index_dbl(.i = dates,
+                                                 .x = confirmed_dailycases,
+                                                 .f = mean,
+                                                 .before = 3,
+                                                 .after= 3),
+          recovered7_dailycases = slide_index_dbl(.i = dates,
+                                                  .x = recovered_dailycases,
+                                                  .f = mean,
+                                                  .before = 3,
+                                                  .after = 3),
+         deaths7_dailycases = slide_index_dbl(.i = dates,
+                                              .x = deaths_dailycases,
+                                              .f = mean,
+                                              .before = 3,
+                                              .after = 3),
+         confirmed7 = slide_index_dbl(.i = dates,
+                                      .x = confirmed,
+                                      .f = mean,
+                                      .before = 3,
+                                      .after = 3),
+         recovered7 = slide_index_dbl(.i = dates,
+                                      .x = recovered,
+                                      .f = mean,
+                                      .before = 3,
+                                      .after = 3),
+         deaths7 = slide_index_dbl(.i = dates,
+                                   .x = deaths,
+                                   .f = mean,
+                                   .before = 3,
+                                   .after = 3))
+
+head(Peru_global_ts)
+```
+
+
+## ¡Ahora grafiquemos!
+
+Utilizo la library `dygraph` para graficar una serie de tiempo interactiva para los casos diarios de confirmados(*confirmed*), recuperados(*recovered*) y muertes(*deaths*). Cada serie de tiempo cuenta con 2 variables: el número diario de casos y el promedio móvil de 7 días.
+
+El gráfico interactivo permite ver con mayor detalle intervalos seleccionados de fechas. 
+
+
+<style>
+.html-widget {
+    margin: auto;
+}
+</style>
+
+El primer gráfico es para el número de casos confirmados diarios.  
+
+```{r CONFIRMED_DAILY, fig.align = 'center'}
+peru_int_confirmeddaily <- cbind(Peru_global_ts[c(1, 3, 10)])
+peru_int_confirmeddaily$confirmed7_dailycases <- round(peru_int_confirmeddaily$confirmed7_dailycases, 0)
+rownames( peru_int_confirmeddaily) <- as.POSIXlt( peru_int_confirmeddaily[, 1])
+ts_peru_int_confirmeddaily <-  peru_int_confirmeddaily[, -1]
+dygraph(ts_peru_int_confirmeddaily, 
+        main = "Confirmed Covid-19 Daily cases") %>%
+  dySeries("confirmed_dailycases", stepPlot = TRUE, 
+           fillGraph = TRUE, color = "lightblue", label = "Confirmed Daily Cases") %>%
+  dySeries("confirmed7_dailycases", drawPoints = TRUE, 
+           pointShape = "square", color = "darkblue", label = "Rolling Avg 7") %>%
+  dyRangeSelector(height = 20) %>%
+  dyLegend(width = 300) 
+```
+
+<br/><br/>
+El segundo gráfico corresponde al número diario de casos recuperados.  
+
+
+```{r DYGRAPGH_RECOVERY_DAILY, fig.align='right'}
+peru_int_recovereddaily <- cbind(Peru_global_ts[c(1, 5, 11)])
+peru_int_recovereddaily$recovered7_dailycases <- round(peru_int_recovereddaily$recovered7_dailycases, 0)
+rownames( peru_int_recovereddaily) <- as.POSIXlt( peru_int_recovereddaily[, 1])
+ts_peru_int_recovereddaily <-  peru_int_recovereddaily[, -1]
+dygraph(ts_peru_int_recovereddaily, 
+        main = " Recovered Covid-19 Daily cases") %>%
+  dySeries("recovered_dailycases", stepPlot = TRUE, 
+           fillGraph = TRUE, color = "turquoise", label = "Recovered Daily Cases") %>%
+  dySeries("recovered7_dailycases", drawPoints = TRUE, 
+           pointShape = "circle", color = "green", label = "Rolling Avg 7") %>%
+  dyRangeSelector(height = 20) %>%
+  dyLegend(width = 300) 
+```
+
+<br/><br/>
+El tercer gráfico es para el número de muertes diarias.
+
+
+```{r Deaths_Daily}
+peru_int_deathsdaily <- cbind(Peru_global_ts[c(1, 7, 12)])
+peru_int_deathsdaily$deaths7_dailycases <- round(peru_int_deathsdaily$deaths7_dailycases, 0)
+rownames( peru_int_deathsdaily) <- as.POSIXlt( peru_int_deathsdaily[, 1])
+ts_peru_int_deathsdaily <-  peru_int_deathsdaily[, -1]
+dygraph(ts_peru_int_deathsdaily,
+        main = "Covid-19 Daily Deaths") %>%
+  dySeries("deaths_dailycases", stepPlot = TRUE, fillGraph = TRUE, 
+           color = "orange", label = "Deaths Daily Cases") %>%
+  dySeries("deaths7_dailycases", drawPoints = TRUE, pointShape = "square",
+           color = "red", label = "Rolling Avg 7") %>%
+  dyRangeSelector(height = 20) %>%
+  dyLegend(width = 285) 
+```
+
+<br/><br/>
+La library `plotly` se utiliza para crear el último gráfico. Para este gráfico usamos los valores acumulados y el promedio móvil de 7 días de nuestras 3 variables: *confirmed*(confirmados), *recovered*(recuperados) and *deaths*(muertes).
+
+Este gráfico tiene 2 ejes **Y**. El eje **Y** de la izquierda corresponde a los valores acumulados de los casos confirmados y recuperados; por otro lado, el eje **Y** de la derecha, corresponde a los valores acumulados de las muertes. Consideré utilizar dos ejes **Y** porque los valores confirmados y recuperados tienen un rango similar, en contraste con los valores de muertes que tienen un rango menor. Por eso, para visualizar mejor la tendencia de la serie de fallecimientos, se decidió agregar el segundo eje **Y**.
+
+<style>
+.html-widget {
+    margin: auto;
+}
+</style>
+
+
+```{r, fig.asp=1, fig.height=7, fig.align='center'}
+plot_ly() %>%
+  add_trace(x = ~Peru_global_ts$dates, y = ~ round(Peru_global_ts$confirmed7, 0), name = "Confirmed",  
+            type = 'scatter', mode = 'lines', line = list(color = 'blue', size = 4),
+            hoverinfo = "text",
+            text = ~paste("Date: ", Peru_global_ts$dates,
+                          "<br>",
+                          "Confirmed: ", round(Peru_global_ts$confirmed7, 0))) %>%
+  add_trace(x = ~Peru_global_ts$dates, y = ~round(Peru_global_ts$recovered7, 0), name = "Recovered",
+            type = 'scatter', mode = 'lines', line = list(color = 'green', size = 4),
+            hoverinfo = "text",
+            text = ~paste("Date: ", Peru_global_ts$dates,
+                          "<br>",
+                          "Recovered: ", round(Peru_global_ts$recovered7, 0))) %>% 
+  add_trace(x = ~Peru_global_ts$dates, y = ~round(Peru_global_ts$deaths7, 0), name = "Deaths", yaxis = "y2",
+            type = 'scatter', mode = 'lines', line = list(color = 'red', size = 4),
+            hoverinfo = "text",
+            text = ~paste("Date: ",Peru_global_ts$dates,
+                          "<br>",
+                          "Deaths: ", round(Peru_global_ts$deaths7, 0))) %>% 
+  layout( title = list(text ="7-day Rolling Average Cumulative Covid-19 cases Peru 2020-2021",
+                       size = 10),
+          yaxis2 = list(tickfont = list(color = "red"),
+                        overlaying = "y",
+                        side = "right",
+                        title = "Cumulative Deaths",
+                        showgrid = FALSE),
+          xaxis = list(title = "Dates",
+                       color = "black"),
+          yaxis = list(tickangle = 0,
+                      title = "Cumulative Confirmed and Recovered <br><br><br>",
+                      standoff = 90,
+                      showgrid = FALSE),
+          legend = list(orientation = "h",   
+                        xanchor = "center",  
+                        x = 0.5,             
+                        y = -0.2),
+          autosize = T,
+          margin = list(l = 100, r = 100, b = 100, t = 100, pad = 20)) 
+```
+
+
+Una vez que todos nuestros gráficos están terminados, los combino en una sola figura que consta de dos columnas; la columna de la izquierda tiene el gráfico de las series de tiempo de los casos acumulados combinados, y la columna de la derecha tiene tres gráficos individuales correspondientes a los casos diarios.  
+
+Uso el comando `manipulateWidget::combineWidget`. Este comando permite unir nuestros gráficos interactivos en una sola imagen de forma rápida y sencilla.  
+
+Primero, creo una función para combinar en un solo gráfico las tres series acumulativas. 
+
+
+```{r CULUMATES_PLOT_functions}
+cumulates_plotly <- function(id){plot_ly() %>%
+  add_trace(x = ~Peru_global_ts$dates, y = ~ round(Peru_global_ts$confirmed7, 0), name = "Confirmed",  
+            type = 'scatter', mode = 'lines', line = list(color = 'blue', size = 4),
+            hoverinfo = "text",
+            text = ~paste("Date: ", Peru_global_ts$dates,
+                          "<br>",
+                          "Confirmed: ", round(Peru_global_ts$confirmed7, 0))) %>%
+  add_trace(x = ~Peru_global_ts$dates, y = ~round(Peru_global_ts$recovered7, 0), name = "Recovered",
+            type = 'scatter', mode = 'lines', line = list(color = 'green', size = 4),
+            hoverinfo = "text",
+            text = ~paste("Date: ", Peru_global_ts$dates,
+                          "<br>",
+                          "Recovered: ", round(Peru_global_ts$recovered7, 0))) %>% 
+  add_trace(x = ~Peru_global_ts$dates, y = ~round(Peru_global_ts$deaths7, 0), name = "Deaths", yaxis = "y2",
+            type = 'scatter', mode = 'lines', line = list(color = 'red', size = 4),
+            hoverinfo = "text",
+            text = ~paste("Date: ", Peru_global_ts$dates,
+                          "<br>",
+                          "Deaths: ", round(Peru_global_ts$deaths7, 0))) %>% 
+  layout( title = list(text = "7-day Rolling Average Cumulative Covid-19 cases Peru 2020-2021",
+                       size = 10),
+          yaxis2 = list(tickfont = list(color = "red"),
+                        overlaying = "y",
+                        side = "right",
+                        title = "Cumulative Deaths",
+                        showgrid= FALSE),
+          xaxis = list(title = "Dates",
+                       color = "black"),
+          yaxis = list(tickangle =0,
+                      title = "Cumulative Confirmed and Recovered <br><br><br>",
+                      standoff = 90,
+                      showgrid = FALSE),
+          legend = list(orientation = "h",   
+                        xanchor = "center",  
+                        x = 0.5,             
+                        y = -0.2),
+          autosize = T,
+          margin = list(l = 100, r = 100, b = 100, t = 100, pad = 20))}
+```
+
+
+En segundo lugar, creo una función para definir cada componente de la columna de la derecha en la figura final.  
+
+
+```{r DYGRAPH_functions}
+c1 <-function(id){dygraph(ts_peru_int_confirmeddaily, 
+        main = "Confirmed Covid-19 Daily cases") %>%
+  dySeries("confirmed_dailycases", stepPlot = TRUE, 
+           fillGraph = TRUE, color = "lightblue", label = "Confirmed Daily Cases") %>%
+  dySeries("confirmed7_dailycases", drawPoints = TRUE, 
+           pointShape = "square", color = "darkblue", label = "Rolling Avg 7") %>%
+  dyRangeSelector(height = 20) %>%
+  dyLegend(width = 300)}
+
+r1<-function(id){dygraph(ts_peru_int_recovereddaily, 
+        main = " Recovered Covid-19 Daily cases") %>%
+  dySeries("recovered_dailycases", stepPlot = TRUE, 
+           fillGraph = TRUE, color = "turquoise", label = "Recovered Daily Cases") %>%
+  dySeries("recovered7_dailycases", drawPoints = TRUE, 
+           pointShape = "circle", color = "green", label = "Rolling Avg 7") %>%
+  dyRangeSelector(height = 20) %>%
+  dyLegend(width = 300)}
+
+d1<-function(id){dygraph(ts_peru_int_deathsdaily,
+        main = "Covid-19 Daily Deaths") %>%
+  dySeries("deaths_dailycases", stepPlot = TRUE, fillGraph = TRUE, 
+           color = "orange", label = "Deaths Daily Cases") %>%
+  dySeries("deaths7_dailycases", drawPoints = TRUE, pointShape = "square",
+           color = "red", label = "Rolling Avg 7") %>%
+  dyRangeSelector(height = 20) %>%
+  dyLegend(width = 285)}
+```
+
+
+Para concluir, utilizo `combineWidget` para organizar los gráficos en el gráfico final. Además, creo la función `write_alt_text` para agregar un texto alternativo al gráfico.  
+
+
+```{r COMBINE_PLOT,fig.height=8, fig.width=12, fig.align="left"}
+write_alt_text <- function(
+  chart_type, 
+  type_of_data, 
+  reason, 
+  source){glue::glue(
+    "{chart_type} de {type_of_data} donde {reason} <br> \n\nFuente: {source}")}
+combineWidgets(
+  ncol = 2, colsize = c(2,1),
+  cumulates_plotly(1),
+  title = "Gráficas Interactivas de las Series de Tiempo Covid-19 Perú",
+  footer = write_alt_text(
+  "Serie de Tiempo", 
+  "Casos de confirmados, recuperados y muertes por Covid-19 en el Perú", 
+  "la información sobre la evolución del Covid-19 es necesaria.", 
+  "MINSA-Peru/ CSSE-John Hopkins University.<br>Hecho por Marco Arellano B. Twitter: marellanob93, Github: marellanob") ,
+  combineWidgets(
+    ncol = 1,
+    c1(2),
+    r1(3),
+    d1(4)))
+```
+
+<style>
+.html-widget {
+    margin: left;
+}
+</style>
